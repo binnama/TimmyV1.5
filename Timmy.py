@@ -621,7 +621,9 @@ async def do_words(message):
 
     try:
         user_wordcount = int(msgin[1])
-        if message.author in user_wordcounts:
+        if msgin == None:
+            msgout = 'No value provided. Use "!words <wordcount>!'
+        elif message.author in user_wordcounts:
             words_written = user_wordcount - user_wordcounts[message.author]
             msgout += f'You wrote {words_written} words. '
             user_wordcounts.pop(message.author)
@@ -662,7 +664,9 @@ async def do_words(message):
             user_wordcounts[message.author] = user_wordcount
 
     except (IndexError, ValueError):
-        msgout += 'Please provide a valid wordcount'
+        #msgout += 'Please provide a valid wordcount'
+        current_word_count = user_wordcounts[message.author]
+        msgout += f'Your current wordcount is {current_word_count}'
 
     await post_message(message, msgout)
 
