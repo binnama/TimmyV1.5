@@ -249,7 +249,6 @@ class Reminder:
         await post_message(self.message, self.reminder)
         reminders.remove(self)
 
-
 @client.event
 async def on_message(message):
     if not message.content: 
@@ -836,7 +835,7 @@ for hydra in reading:
     hydras.append(hydra)
 reading.close()
 
-admin_roles = ['Moderator', 'Event Koordinator']
+admin_roles = ['Moderator', 'Event Koordinator', 'BotMaster']
 
 #reading = open('key.txt', 'r')
 #TOKEN = reading.readline().strip()
