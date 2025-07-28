@@ -53,19 +53,23 @@ class War:
         return string
 
     async def countdown(self):
-        await post_message(self.message, f'War: {self.name} is starting in '
-                                         f'{convert_time_difference_to_str(self.wait_duration)}')
-        #if self.wait_duration >= 5 * minute_length:
-        delay_countdown = minute_length / 2
-        await asyncio.sleep(self.wait_duration - delay_countdown)
-        if self.in_war():
-            user_mentions = await self.get_reactions_as_mentions(False)
-            await post_message(self.message, f'War: {self.name} starts in '
-                                                 f'{convert_time_difference_to_str(delay_countdown)}. '
-                                                 f'Get ready! {user_mentions}', reply=True, mention=True)
-            await asyncio.sleep(delay_countdown)
-        #else:
-        #    await asyncio.sleep(self.wait_duration)
+        if self.wait_duration == 0:
+            await post_message(self.message, f'War: {self.name} is starting NOW')
+
+        else:
+            await post_message(self.message, f'War: {self.name} is starting in '
+                                             f'{convert_time_difference_to_str(self.wait_duration)}')
+            if self.wait_duration >= 0.5 * minute_length:
+                delay_countdown = minute_length / 2
+                await asyncio.sleep(self.wait_duration - delay_countdown)
+                if self.in_war():
+                    user_mentions = await self.get_reactions_as_mentions(False)
+                    await post_message(self.message, f'War: {self.name} starts in '
+                                                         f'{convert_time_difference_to_str(delay_countdown)}. '
+                                                         f'Get ready! {user_mentions}', reply=True, mention=True)
+                    await asyncio.sleep(delay_countdown)
+            elif self.wait_duration < 0.5 * minute_length and not self.wait_duration == 0:
+                await asyncio.sleep(self.wait_duration)
 
         if self.in_war():
             await self.run_war()
