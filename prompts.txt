@@ -555,3 +555,4 @@ Last Chance
 Unexplored Cow
 Geipe til varmmatfolka
 Cow suprise
+Rapid Unscheduled Disassembly
