@@ -158,6 +158,7 @@ class War:
             if wars[self.name.lower()] == self:
                 return True
         return False
+
 class Timer:
     def __init__(self, name, message, timer_duration, wait_duration, repetitions):
         self.name = name
@@ -227,6 +228,21 @@ class Timer:
             mention=True,
         )
 
+        remaining_duration = self.timer_duration
+        for interval in timer_intervals:
+            if not self.in_timer():
+                return
+            if remaining_duration <= minute_length:
+                await asyncio.sleep(remaining_duration)
+                break
+            if remaining_duration > interval:
+                diff = remaining_duration - interval
+                await asyncio.sleep(diff)
+                if not self.in_timer():
+                    return
+                remaining_duration = interval
+
+
         # Denne her kan kanskje bli skrevet bedre
         if self.in_timer():
             user_mentions = await self.get_reactions_as_mentions(False)
@@ -248,7 +264,7 @@ class Timer:
                     await post_message(self.message, "One more war remaining")
                 await self.countdown()
             else:
-                wars.pop(self.name.lower())
+                timers.pop(self.name.lower())
 
     async def get_reactions_as_mentions(self, no_countdown):
         user_mention = ""
@@ -454,6 +470,7 @@ async def on_message(message):
     if message_string.startswith("!startwar") and not in_slagmark(message):
         await post_message(message, "I can not start a war in this channel")
 
+
     # Timers
     if message_string.startswith("!starttimer") and in_slagmark(message):
         msgin = message.content.split()
@@ -531,7 +548,7 @@ async def on_message(message):
 
     # Ending either sessions or a ongoing war.
     # Name of the war/session is required
-    if message_string.startswith("!end") and in_slagmark(message):
+    if message_string.startswith("!endwar") and in_slagmark(message):
         name = message.content.split()
         if name[0][4:].lower() == "session":
             ending = sessions
@@ -553,6 +570,28 @@ async def on_message(message):
             msgout = f"No {ending_str} with that name."
         await post_message(message, msgout)
 
+    if message_string.startswith("!endtimer") and in_slagmark(message):
+        name = message.content.split()
+        if name[0][4:].lower() == "session":
+            ending = sessions
+            ending_str = "session"
+        else:
+            ending = timers
+            ending_str = "timer"
+
+        name = get_name_string(name[1:], message).lower()
+        if name in ending:
+            if ending[name].user == message.author or is_role(
+                message.author, admin_roles
+            ):
+                ended = ending.pop(name)
+                msgout = f"{ending_str.capitalize()}: {ended.name} cancelled"
+            else:
+                msgout = f"You can only end your own {ending_str}."
+        else:
+            msgout = f"No {ending_str} with that name."
+        await post_message(message, msgout)
+
     # TODO: Fix single war in another server
     # Lists all ongoing wars
     if message_string.startswith("!list"):
@@ -560,7 +599,7 @@ async def on_message(message):
         listings[0] = listings[0][5:]
 
         if listings[0] == "":
-            listings = ["wars"]
+            listings = ["wars", "timers"]
         if listings[0] == "all":
             listings = params_list
 
@@ -571,6 +610,12 @@ async def on_message(message):
             for key in wars:
                 war = wars[key]
             await post_message(war.message, war.__str__(False))
+            return
+
+        if listings == ["timers"] and len(timers) == 1:
+            for key in timers:
+                timer = timers[key]
+            await post_message(timer.message, timer.__str__(False))
             return
 
         msg = ""
@@ -956,6 +1001,9 @@ def get_name_string(msg_list, message):
     if msg == "" and message.content.lower().startswith("!startwar"):
         msg += get_prompt()
 
+    if msg == "" and message.content.lower().startswith("!starttimer"):
+        msg += ""
+
     return msg.strip()
 
 
@@ -1043,6 +1091,8 @@ war_defaults = [("repetitions", 1), ("war_len", 10), ("wait_len", 1)]
 timer_defaults = [("repetitions", 1), ("timer_len", 25), ("wait_len", 1)]
 war_len_intervals = [120, 60, 30, 20, 10, 5, 1, 0]
 war_len_intervals = [interval * minute_length for interval in war_len_intervals]
+timer_intervals = [120, 60, 30, 20, 10, 5, 1, 0]
+timer_intervals = [interval * minute_length for interval in timer_intervals]
 duration_lengths = [(86400, "day"), (3600, "hour"), (60, "minute"), (1, "second")]
 nano_wordcounts = [
     1667,
