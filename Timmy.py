@@ -262,10 +262,10 @@ class Timer:
                 self.start_time = time.time() + self.wait_duration
                 if self.repetitions > 1:
                     await post_message(
-                        self.message, f"{self.repetitions} more wars remaining"
+                        self.message, f"{self.repetitions} more timers remaining"
                     )
                 else:
-                    await post_message(self.message, "One more war remaining")
+                    await post_message(self.message, "One more timer remaining")
                 await self.countdown()
             else:
                 timers.pop(self.name.lower())
