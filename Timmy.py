@@ -167,6 +167,7 @@ class Timer:
         self.repetitions = int(repetitions)
         self.message = message
         self.start_time = time.time() + wait_duration
+        self.mention_author = True
 
     def __str__(self, link=True):
         string = f"Timer: {self.name.strip()}. "
@@ -176,9 +177,13 @@ class Timer:
                 self.start_time - time.time()
             )
             string += f"Starting in {converted_time}. "
+        else:
+            end_time = self.start_time + self.timer_duration
+            converted_time = convert_time_difference_to_str(end_time - time.time())
+            string += f"{converted_time} remaining. "
 
         if self.repetitions > 1:
-            string += f"{self.repetitions} more wars remaining"
+            string += f"{self.repetitions} more timers remaining"
 
         if link:
             string += self.message.jump_url
