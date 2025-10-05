@@ -1,14 +1,14 @@
 import asyncio
-import time
-import random
 import heapq
-import re
 import os
+import random
+import re
+import time
 from typing import Final
 
-from dotenv import load_dotenv
 import discord
 from discord.ext import commands
+from dotenv import load_dotenv
 
 intents = discord.Intents.default()
 intents.members = True
