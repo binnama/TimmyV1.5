@@ -1,14 +1,13 @@
-import discord
 import asyncio
-import time
-import random
 import heapq
-import re
-
-from discord.ext import commands
-
 import os
+import random
+import re
+import time
 from typing import Final
+
+import discord
+from discord.ext import commands
 from dotenv import load_dotenv
 
 intents = discord.Intents.default()
@@ -158,6 +157,136 @@ class War:
             if wars[self.name.lower()] == self:
                 return True
         return False
+
+class Timer:
+    def __init__(self, name, message, timer_duration, wait_duration, repetitions):
+        self.name = name
+        self.user = message.author
+        self.timer_duration = timer_duration
+        self.wait_duration = wait_duration
+        self.repetitions = int(repetitions)
+        self.message = message
+        self.start_time = time.time() + wait_duration
+        self.mention_author = True
+
+    def __str__(self, link=True):
+        string = f"Timer: {self.name.strip()}. "
+
+        if self.start_time > time.time():
+            converted_time = convert_time_difference_to_str(
+                self.start_time - time.time()
+            )
+            string += f"Starting in {converted_time}. "
+        else:
+            end_time = self.start_time + self.timer_duration
+            converted_time = convert_time_difference_to_str(end_time - time.time())
+            string += f"{converted_time} remaining. "
+
+        if self.repetitions > 1:
+            string += f"{self.repetitions} more timers remaining"
+
+        if link:
+            string += self.message.jump_url
+
+        return string
+
+    async def countdown(self):
+        if self.wait_duration == 0:
+            await post_message(self.message, f"Timer: {self.name} is starting NOW")
+
+        else:
+            await post_message(
+                self.message,
+                f"Timer: {self.name} is starting in "
+                f"{convert_time_difference_to_str(self.wait_duration)}",
+            )
+            if self.wait_duration >= 0.5 * minute_length:
+                delay_countdown = minute_length / 2
+                await asyncio.sleep(self.wait_duration - delay_countdown)
+                if self.in_timer():
+                    user_mentions = await self.get_reactions_as_mentions(False)
+                    await post_message(
+                        self.message,
+                        f"Timer: {self.name} starts in "
+                        f"{convert_time_difference_to_str(delay_countdown)}. "
+                        f"Get ready! {user_mentions}",
+                        reply=True,
+                        mention=True,
+                    )
+                    await asyncio.sleep(delay_countdown)
+            elif (
+                self.wait_duration < 0.5 * minute_length and not self.wait_duration == 0
+            ):
+                await asyncio.sleep(self.wait_duration)
+
+        if self.in_timer():
+            await self.run_timer()
+
+    async def run_timer(self):
+        user_mentions = await self.get_reactions_as_mentions(False)
+        await post_message(
+            self.message,
+            f"Timer: {self.name} is on for "
+            f"{convert_time_difference_to_str(self.timer_duration)}. "
+            f"{user_mentions}",
+            mention=True,
+        )
+
+        remaining_duration = self.timer_duration
+        for interval in timer_intervals:
+            if not self.in_timer():
+                return
+            if remaining_duration <= minute_length:
+                await asyncio.sleep(remaining_duration)
+                break
+            if remaining_duration > interval:
+                diff = remaining_duration - interval
+                await asyncio.sleep(diff)
+                if not self.in_timer():
+                    return
+                remaining_duration = interval
+
+
+        # Denne her kan kanskje bli skrevet bedre
+        if self.in_timer():
+            user_mentions = await self.get_reactions_as_mentions(False)
+            await post_message(
+                self.message,
+                f"Timer: {self.name} has ended! {user_mentions}",
+                tts=True,
+                mention=True,
+            )
+
+            if self.repetitions > 1:
+                self.repetitions -= 1
+                self.start_time = time.time() + self.wait_duration
+                if self.repetitions > 1:
+                    await post_message(
+                        self.message, f"{self.repetitions} more timers remaining"
+                    )
+                else:
+                    await post_message(self.message, "One more timer remaining")
+                await self.countdown()
+            else:
+                timers.pop(self.name.lower())
+
+    async def get_reactions_as_mentions(self, no_countdown):
+        user_mention = ""
+        for r in self.message.reactions:
+            async for user in r.users():
+                if no_countdown and is_role(user, ["No-Countdown"]):
+                    continue
+                if user.bot:
+                    continue
+                user_mention += " " + str(user.mention)
+        return user_mention
+
+    def in_timer(self):
+        if self.name.lower() in timers:
+            if timers[self.name.lower()] == self:
+                return True
+        return False
+
 
 
 class Event:
@@ -345,6 +474,49 @@ async def on_message(message):
     if message_string.startswith("!startwar") and not in_slagmark(message):
         await post_message(message, "I can not start a war in this channel")
 
+
+    # Timers
+    if message_string.startswith("!starttimer") and in_slagmark(message):
+        msgin = message.content.split()
+
+        str_start = 0
+        if len(msgin) > 1:
+            match = re.match("\[\d+\]", msgin[1])
+            if match is not None:
+                msgin[1] = msgin[1].strip("[]")
+                str_start += 1
+
+        timer_ins, str_start = split_input_variables(msgin[str_start:], timer_defaults)
+
+        name = get_name_string(msgin[str_start:], message)
+        if name.lower() in timers:
+            await message.reply(
+                "A timer with that name already exists, please use a different name or end the current "
+                "timer.",
+                mention_author=False,
+            )
+            return
+
+        repetitions = timer_ins[0]
+        timer_duration = timer_ins[1] * minute_length
+        wait_duration = timer_ins[2] * minute_length
+
+        # Legg inn en egen mulighet for dersom noen ber om en krig på nøyaktig ett år
+        if timer_ins[1] >= 1000:
+            await post_message(
+                message,
+                f"Assuming you want !words instead of a {int(timer_ins[1])} min long timer",
+            )
+            await do_words(message)
+            return
+
+        timer = Timer(name, message, timer_duration, wait_duration, repetitions)
+        await message.add_reaction("⏳")
+        timers[name.lower()] = timer
+
+        await timer.countdown()
+
+
     # Start sessions
     if message_string.startswith("!startsession") and in_slagmark(message):
         msgin = message.content.split()
@@ -380,7 +552,7 @@ async def on_message(message):
 
     # Ending either sessions or a ongoing war.
     # Name of the war/session is required
-    if message_string.startswith("!end") and in_slagmark(message):
+    if message_string.startswith("!endwar") and in_slagmark(message):
         name = message.content.split()
         if name[0][4:].lower() == "session":
             ending = sessions
@@ -402,6 +574,28 @@ async def on_message(message):
             msgout = f"No {ending_str} with that name."
         await post_message(message, msgout)
 
+    if message_string.startswith("!endtimer") and in_slagmark(message):
+        name = message.content.split()
+        if name[0][4:].lower() == "session":
+            ending = sessions
+            ending_str = "session"
+        else:
+            ending = timers
+            ending_str = "timer"
+
+        name = get_name_string(name[1:], message).lower()
+        if name in ending:
+            if ending[name].user == message.author or is_role(
+                message.author, admin_roles
+            ):
+                ended = ending.pop(name)
+                msgout = f"{ending_str.capitalize()}: {ended.name} cancelled"
+            else:
+                msgout = f"You can only end your own {ending_str}."
+        else:
+            msgout = f"No {ending_str} with that name."
+        await post_message(message, msgout)
+
     # TODO: Fix single war in another server
     # Lists all ongoing wars
     if message_string.startswith("!list"):
@@ -409,7 +603,7 @@ async def on_message(message):
         listings[0] = listings[0][5:]
 
         if listings[0] == "":
-            listings = ["wars"]
+            listings = ["wars", "timers"]
         if listings[0] == "all":
             listings = params_list
 
@@ -420,6 +614,12 @@ async def on_message(message):
             for key in wars:
                 war = wars[key]
             await post_message(war.message, war.__str__(False))
+            return
+
+        if listings == ["timers"] and len(timers) == 1:
+            for key in timers:
+                timer = timers[key]
+            await post_message(timer.message, timer.__str__(False))
             return
 
         msg = ""
@@ -805,6 +1005,9 @@ def get_name_string(msg_list, message):
     if msg == "" and message.content.lower().startswith("!startwar"):
         msg += get_prompt()
 
+    if msg == "" and message.content.lower().startswith("!starttimer"):
+        msg += ""
+
     return msg.strip()
 
 
@@ -867,12 +1070,13 @@ async def on_ready():
 
 
 wars = {}
+timers = {}
 spam_dict = {}
 events = {}
 sessions = {}
 reminders = []
-params = {"wars": wars, "spam": spam_dict, "events": events, "sessions": sessions}
-params_list = ["wars", "spam", "events", "sessions"]
+params = {"wars": wars, "timers": timers, "spam": spam_dict, "events": events, "sessions": sessions}
+params_list = ["wars", "timers", "spam", "events", "sessions"]
 user_wordcounts = {}
 
 char_limit = 2000
@@ -888,8 +1092,11 @@ session_defaults = [
 ]
 spam_defaults = [("freq", 30)]
 war_defaults = [("repetitions", 1), ("war_len", 10), ("wait_len", 1)]
+timer_defaults = [("repetitions", 1), ("timer_len", 25), ("wait_len", 1)]
 war_len_intervals = [120, 60, 30, 20, 10, 5, 1, 0]
 war_len_intervals = [interval * minute_length for interval in war_len_intervals]
+timer_intervals = [120, 60, 30, 20, 10, 5, 1, 0]
+timer_intervals = [interval * minute_length for interval in timer_intervals]
 duration_lengths = [(86400, "day"), (3600, "hour"), (60, "minute"), (1, "second")]
 nano_wordcounts = [
     1667,
