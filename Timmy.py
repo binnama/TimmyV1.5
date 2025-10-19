@@ -158,6 +158,7 @@ class War:
                 return True
         return False
 
+
 class Timer:
     def __init__(self, name, message, timer_duration, wait_duration, repetitions):
         self.name = name
@@ -246,7 +247,6 @@ class Timer:
                     return
                 remaining_duration = interval
 
-
         # Denne her kan kanskje bli skrevet bedre
         if self.in_timer():
             user_mentions = await self.get_reactions_as_mentions(False)
@@ -286,7 +286,6 @@ class Timer:
             if timers[self.name.lower()] == self:
                 return True
         return False
-
 
 
 class Event:
@@ -474,7 +473,6 @@ async def on_message(message):
     if message_string.startswith("!startwar") and not in_slagmark(message):
         await post_message(message, "I can not start a war in this channel")
 
-
     # Timers
     if message_string.startswith("!starttimer") and in_slagmark(message):
         msgin = message.content.split()
@@ -515,7 +513,6 @@ async def on_message(message):
         timers[name.lower()] = timer
 
         await timer.countdown()
-
 
     # Start sessions
     if message_string.startswith("!startsession") and in_slagmark(message):
@@ -1075,7 +1072,13 @@ spam_dict = {}
 events = {}
 sessions = {}
 reminders = []
-params = {"wars": wars, "timers": timers, "spam": spam_dict, "events": events, "sessions": sessions}
+params = {
+    "wars": wars,
+    "timers": timers,
+    "spam": spam_dict,
+    "events": events,
+    "sessions": sessions,
+}
 params_list = ["wars", "timers", "spam", "events", "sessions"]
 user_wordcounts = {}
 
